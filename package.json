@@ -1,0 +1,16 @@
+{
+  "name": "puppeteer-fetcher",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "puppeteer": "^10.4.0"
+  },
+  "engines": {
+    "node": ">=18.x"
+  }
+}

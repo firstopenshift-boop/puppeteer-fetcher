@@ -1,0 +1,85 @@
+const express = require('express');
+const puppeteer = require('puppeteer');
+
+const app = express();
+const PORT = 8081; // 您想要使用的端口
+
+// 定义一个接口来抓取数据
+app.get('/fetch-data', async (req, res) => {
+    // 从查询参数中获取 videoUrl
+    const videoUrl = req.query.url; // 修改此行为从请求参数获取 URL
+    
+    // 检查 videoUrl 是否存在
+    if (!videoUrl) {
+        return res.status(400).json({ error: '缺少 videoUrl 参数' }); // 返回错误信息
+    }
+
+    try {
+        const browser = await puppeteer.launch({ headless: false });
+        const page = await browser.newPage();
+        //await page.setViewport({ width: 1280, height: 800 });
+
+
+        // 设置请求拦截
+        await page.setRequestInterception(true);
+        page.on('request', (request) => {
+            const resourceType = request.resourceType();
+            // 中止不必要的请求，只拦截图片和样式表等
+            if (resourceType === 'image' || 
+                resourceType === 'stylesheet' ||
+                resourceType === 'font' ||
+                resourceType ==='media' ||
+                resourceType === 'websocket' 
+            ) {
+                request.abort();
+            } else {
+                request.continue();
+            }
+        });
+
+
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+        
+        await page.goto(videoUrl, { waitUntil: 'networkidle2' });
+        
+        // 等待视频元素加载
+        //await page.waitForSelector('video');
+
+        // 打印页面标题
+        /* const pageTitle = await page.title();
+        console.log(pageTitle); */
+    
+        // 打印页面代码
+        const pageContent = await page.content();
+        //console.log(pageContent);
+
+        // 正则表达式匹配 HLS URL
+        const regex = /https?:\/\/[^\s]+\.m3u8/;
+        const match = pageContent.match(regex);
+        let hlsUrl = null; // 使用 let 而不是 const
+        if (match) {
+            hlsUrl = match[0]; // 赋值给 hlsUrl
+        }
+
+        await browser.close();
+        
+        if (hlsUrl) {
+            res.json({ hlsUrl });
+            console.log(new Date().toLocaleString() + '==>' + videoUrl + '==>' + '✔');
+        } else {
+            res.status(404).json({ error: '未找到 hlsUrl' });
+            console.log(new Date().toLocaleString() + '==>' + videoUrl + '==>' + '✔❌');
+        }
+
+        
+    } catch (error) {
+        console.error('抓取错误:', error);
+        res.status(500).json({ error: '抓取失败' });
+        console.log(new Date().toLocaleString() + '==>' + videoUrl + '==>' + '❌');
+    }
+});
+
+// 启动服务器
+app.listen(PORT, () => {
+    console.log(`服务器正在运行，地址为 http://localhost:${PORT}`);
+});
